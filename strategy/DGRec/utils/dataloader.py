@@ -38,7 +38,7 @@ class Dataloader(object):
         logging.info("loading data")
         self.args = args
 
-        dataset_folder = f"/mnt/nas/coppolillo/Serendipity/datasets/{data}"
+        dataset_folder = f"HERE THE DATA FOLDER"
         self.ratings = get_ratings(data, dataset_folder)
 
         self.users_dictionary, self.items_dictionary = get_dictionaries(self.ratings, self.folder, data)

@@ -87,9 +87,4 @@ if __name__ == '__main__':
             if early_stop.early_stop:
                 break
 
-    # logging.info('loading best model for test')
-    # model.load_state_dict(torch.load(early_stop.save_path))
-    # tester = Tester(args, model, dataloader)
-    # logging.info('begin testing')
-    # res = tester.test()
 
