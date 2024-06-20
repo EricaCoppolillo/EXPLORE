@@ -1,5 +1,11 @@
 # EXPLORE
 
+This is the official repository of our paper "**Relevance Meets Diversity: A User-Centric Framework for Knowledge Exploration Through Recommendations**", accepted at KDD2024.
+
+## CITATION
+
+If you want to use the code, please cite us.
+
 ## USAGE
 
 In order to reproduce the experiments, just follow the steps:
