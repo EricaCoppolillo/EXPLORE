@@ -244,6 +244,8 @@ def main(dataset_name):
                     quitting_probability += np.prod(theta[:, :i + 1], axis=-1) * np.prod(1 - p[:, :i + 1], axis=-1) * (
                             1 - theta[:, i + 1])
 
+                quitting_probability += (theta[:, 0]) ** k * np.prod(1 - p[:, :k], axis=-1)
+
             quitting_bernoulli = np.random.binomial(1, p=quitting_probability)
 
             p_u = ratings / np.sum(ratings, axis=-1, keepdims=True)
