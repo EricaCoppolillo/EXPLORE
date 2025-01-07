@@ -17,7 +17,6 @@ from matrix_factorization.model import MatrixFactorization
 
 
 def main(dataset_name):
-
     jaccard_distances_dict = {"movielens-1m": "genres", "KuaiRec-2.0_small": "users",
                               "coat": "genres", "yahoo-r2": "genres", "netflix": "genres"}
 
@@ -76,18 +75,17 @@ def main(dataset_name):
 
     coverage_threshold = 0
 
-    strategy = "dgrec"
+    strategy = "k_means_with_relevance"
     strategies = [
-        "relevance",
+        # "relevance",
         "k_means_with_relevance",
-        # "k_means_without_relevance",
         "coverage_with_relevance",
-        # "coverage_without_relevance",
-        "mmr",
-        "dpp",
-        "dum",
-        "dgrec"
+        # "mmr",
+        # "dpp",
+        # "dum",
     ]
+    #  "dgrec"
+    # ]
 
     competitors = ["relevance", "mmr", "dpp", "dum", "dgrec"]
     our_strategies_with_relevance = ["k_means_with_relevance", "coverage_with_relevance"]
@@ -96,6 +94,9 @@ def main(dataset_name):
     our_strategies_without_relevance = ["k_means_without_relevance", "coverage_without_relevance"]
 
     copula = "clayton"
+
+    USE_RANDOMNESS = False
+    REFRESH = False
 
     USE_WEIBULL = True
 
@@ -106,27 +107,33 @@ def main(dataset_name):
     TAKE_TIME = False
     TUNE_ALPHA = False
 
-    DEFUALT_DETERMINISTIC = True
-
     LOAD_DICT = True
     OVERWRITE_DICT = True
 
-    UPDATE_ALL_STRATEGIES = True
+    UPDATE_ALL_STRATEGIES = False
 
     UPDATE_ALL_KS = False
     UPDATE_ALL_USERS_BUDGETS = False
-    UPDATE_ALL_GS = True
+    UPDATE_ALL_GS = False
 
-    ks = [10]
-    users_budgets = [10, 20, 40]
+    ks = [20, 50, 100]  # 10]
+    users_budgets = [10, 20]  # 5,
+
+    k = 5
+    users_budget = 5
+    g = 2
+
+    if USE_RANDOMNESS:
+        default_random_factors = [0.1, 0.3, 0.5, 0.7, 1.0]
+        UPDATE_ALL_USERS_BUDGETS = False
+
+    if REFRESH:
+        default_refresh_strategies = ["sort_by_relevance", "substitute_half_list", "substitute_whole_list"]
+        UPDATE_ALL_USERS_BUDGETS = False
+        k = 5
 
     if USE_WEIBULL:
-        users_budgets = [5, 10]
         default_gammas = [2]
-
-    k = 10
-    users_budget = 20
-    g = 2
 
     lambdas_dict = {5: 6.2, 10: 11.85, 20: 23.21}
 
@@ -134,13 +141,13 @@ def main(dataset_name):
         LOAD_DICT = False
         OVERWRITE_DICT = False
 
-        UPDATE_ALL_STRATEGIES = True
+        UPDATE_ALL_STRATEGIES = False
 
-        UPDATE_ALL_KS = True
-        UPDATE_ALL_USERS_BUDGETS = True
-        UPDATE_ALL_GS = True
+        UPDATE_ALL_KS = False
+        UPDATE_ALL_USERS_BUDGETS = False
+        UPDATE_ALL_GS = False
 
-        trials = 20
+        trials = 1
 
     if copula == "clayton":
         default_alphas = [0.0001, 0.001, 0.01, 0.5, 0.1, 1, 2, 3, 4]  # current experiments are with alpha=0.5
@@ -191,6 +198,7 @@ def main(dataset_name):
         users_items_matrix = np.zeros((n_users, n_items))
 
         users_quitting_vector = np.zeros(len(users))
+        users_refresh_vector = np.zeros(len(users))
 
         while 0 in users_quitting_vector:
 
@@ -202,10 +210,14 @@ def main(dataset_name):
                 start_strategy = time.time()
 
             if strategy in our_strategies_with_relevance:
-                final_users_items = actual_model.get_recommendations(active_users, k, users_items_matrix, alpha, copula,
-                                                                     use_relevance=True)
+                final_users_items = actual_model.get_recommendations(active_users, k, users_items_matrix, alpha=alpha,
+                                                                     copula=copula, use_relevance=True,
+                                                                     random_factor=random_factor, refresh=REFRESH,
+                                                                     refresh_strategy=refresh_strategy,
+                                                                     users_refresh_vector=users_refresh_vector)
+
             elif strategy in our_strategies_without_relevance:
-                final_users_items = actual_model.get_recommendations(active_users, k, users_items_matrix, None, None,
+                final_users_items = actual_model.get_recommendations(active_users, k, users_items_matrix,
                                                                      use_relevance=False)
             else:
                 final_users_items = actual_model.get_recommendations(active_users, k, users_items_matrix)
@@ -228,25 +240,29 @@ def main(dataset_name):
 
             if USE_WEIBULL:
                 l = lambdas_dict[users_budget]
-                q = np.exp(-1/(l**g))
+                q = np.exp(-1 / (l ** g))
                 # \eta_k = 1 − 𝑞(𝑘 + 1)^(𝛾 −𝑘^𝛾)
-                u_budget = 1 - q**((users_steps[active_users] + 1)**g - users_steps[active_users]**g)
+                u_budget = 1 - q ** ((users_steps[active_users] + 1) ** g - users_steps[active_users] ** g)
             else:
                 u_budget = users_steps[active_users] / users_budget
 
-            theta = np.repeat(1 - u_budget, k).reshape(len(active_users), k)
+            theta = np.repeat(1 - u_budget, k).reshape(len(active_users), k)  # 1 - eta_t
             # for now theta is constant in the examination of the recommendation list
 
             quitting_probability = np.full(len(active_users), 1 - theta[:, 0])
 
             if not COMPUTE_EXPECTATION:
                 for i in range(k - 1):
-                    quitting_probability += np.prod(theta[:, :i + 1], axis=-1) * np.prod(1 - p[:, :i + 1], axis=-1) * (
-                            1 - theta[:, i + 1])
-
-                quitting_probability += (theta[:, 0]) ** k * np.prod(1 - p[:, :k], axis=-1)
+                    quitting_probability += (np.prod(theta[:, :i + 1], axis=-1) * np.prod(1 - p[:, :i + 1], axis=-1) *
+                                             (1 - theta[:, i + 1]))
+                if not REFRESH:
+                    quitting_probability += (theta[:, 0])**k * np.prod(1 - p[:, :k], axis=-1)
 
             quitting_bernoulli = np.random.binomial(1, p=quitting_probability)
+
+            if REFRESH:
+                no_interesting_probability = np.prod(1 - p, axis=-1)
+                no_interesting_bernoulli = np.random.binomial(1, p=no_interesting_probability)
 
             p_u = ratings / np.sum(ratings, axis=-1, keepdims=True)
 
@@ -255,14 +271,23 @@ def main(dataset_name):
                 if quitting_bernoulli[i]:  # that user quits
                     users_quitting_vector[active_users[i]] = 1
                 else:
-                    user_choice = np.random.choice(final_users_items[i], p=p_u[i])
-                    users_items_matrix[active_users[i]][user_choice] = 1
+                    if REFRESH and no_interesting_bernoulli[i]:  # user is not weary but found no interesting items
+                        # users_items_matrix[active_users[i]][final_users_items[i]] = -1  # invalidate the recommendations
+                        # print("user with low interest:", active_users[i])
+                        # print("user with low interest (relative index):", i)
+                        # print("suggested items:", final_users_items[i])
+                        # print("associated relevance:", p[i])
+                        users_refresh_vector[active_users[i]] = 1
+                    else:
+                        user_choice = np.random.choice(final_users_items[i], p=p_u[i])
+                        users_items_matrix[active_users[i]][user_choice] = 1
+
                     users_steps[active_users[i]] += 1
 
         end_trial = time.time() - start_trial
         print(f"Trial ended in {end_trial}")
 
-        users_interactions = np.argwhere(users_items_matrix)
+        users_interactions = np.argwhere(users_items_matrix == 1)
         df = pd.DataFrame(users_interactions, columns=["user", "item"])
 
         users_interactions = df.groupby("user").agg(list)["item"]
@@ -291,11 +316,18 @@ def main(dataset_name):
 
         return r_users, coverage_users, users_steps, user_items_distances
 
-    # SAVING by:
+    # SAVING PATH:
     # - outputs
     # -- distance criterion
     # --- k
     # ---- users budget
+    # ------ gamma
+    # -------- if competitor:
+    #             competitors_scores_{dataset}.pkl
+    # -------- if strategy:
+    # ----------- copula
+    # ------------ alpha
+    # ------------- strategies_scores_{dataset}.pkl
 
     for k in ks:
 
@@ -306,6 +338,11 @@ def main(dataset_name):
             else:
                 gammas = [None]
 
+            if REFRESH:
+                refresh_strategies = default_refresh_strategies
+            else:
+                refresh_strategies = [None]
+
             for g in gammas:
 
                 for strategy in strategies:
@@ -315,12 +352,8 @@ def main(dataset_name):
                     else:
                         n_jobs = default_n_jobs
 
-                    if strategy in competitors:
-                        deterministic = False
-                    else:
-                        deterministic = DEFUALT_DETERMINISTIC
-
                     alphas = [None]
+                    random_factors = [None]
 
                     if strategy in our_strategies_with_relevance:
                         if TUNE_ALPHA:
@@ -328,77 +361,89 @@ def main(dataset_name):
                         else:
                             alphas = [0.5]
 
+                        if USE_RANDOMNESS:
+                            random_factors = default_random_factors
+
                     for alpha in alphas:
 
-                        print("-----------------------")
-                        print(f"Dataset={dataset_name}")
-                        print(f"Adopting k={k}")
-                        print(f"Use Weibull={USE_WEIBULL}")
-                        print(f"Budget={users_budget}")
-                        print(f"Gamma={g}")
-                        print(f"Deterministic={deterministic}")
-                        print(f"Recomendation strategy={strategy}")
-                        print(f"Copula={copula}")
-                        print(f"Alpha={alpha}")
+                        for random_factor in random_factors:
 
-                        if not EVALUATE:  # launch simulation
+                            for refresh_strategy in refresh_strategies:
 
-                            final_folder = os.path.join(folder, f"k_{k}", f"users_budget_{users_budget}")
+                                print("-----------------------")
+                                print(f"Dataset={dataset_name}")
+                                print(f"Adopting k={k}")
+                                print(f"Use Weibull={USE_WEIBULL}")
+                                print(f"Budget={users_budget}")
+                                print(f"Gamma={g}")
+                                print(f"Recommendation strategy={strategy}")
+                                print(f"Copula={copula}")
+                                print(f"Alpha={alpha}")
+                                print(f"Random Factor={random_factor}")
+                                print(f"Refresh={REFRESH}")
+                                print(f"Refresh Strategy={refresh_strategy}")
 
-                            if deterministic:
-                                final_folder += "_deterministic/"
+                                if not EVALUATE:  # launch simulation
 
-                            if strategy in competitors:
-                                s = "competitors"
-                                final_folder += "_competitors/"
-                            else:
-                                s = "strategies"
-                                if strategy in our_strategies_with_relevance:
-                                    if copula is not None:
-                                        final_folder += f"copula_{copula}/alpha_{alpha}/"
+                                    final_folder = os.path.join(folder, f"k_{k}", f"users_budget_{users_budget}/")
+
+                                    if g is not None:
+                                        final_folder += f"gamma_{g}/"
+
+                                    if strategy in competitors:
+                                        s = "competitors"
+
                                     else:
-                                        final_folder += "no_copula/"
-                                elif strategy in our_strategies_without_relevance:
-                                    final_folder += "no_relevance/"
+                                        s = "strategies"
+                                        if strategy in our_strategies_with_relevance:
+                                            if copula is not None:
+                                                final_folder += f"copula_{copula}/alpha_{alpha}/"
+                                            else:
+                                                final_folder += "no_copula/"
+                                        elif strategy in our_strategies_without_relevance:
+                                            final_folder += "no_relevance/"
 
-                            if g is not None:
-                                final_folder += f"gamma_{g}/"
+                                        if random_factor is not None:
+                                            final_folder += f"random_factor_{random_factor}/"
 
-                            if TAKE_TIME:
-                                fn = s + f"_time_{dataset_name}.pkl"
-                            else:
-                                fn = s + f"_scores_{dataset_name}.pkl"
+                                        elif refresh_strategy is not None:
+                                            final_folder += f"refresh_strategy_{refresh_strategy}/"
 
-                            if not os.path.exists(final_folder):
-                                os.makedirs(final_folder)
+                                    if TAKE_TIME:
+                                        fn = s + f"_time_{dataset_name}_TKDD.pkl"
+                                    elif REFRESH:
+                                        fn = s + f"_scores_{dataset_name}_with_refresh_TKDD.pkl"
+                                    else:
+                                        fn = s + f"_scores_{dataset_name}_TKDD.pkl"
 
-                            path = os.path.join(final_folder, fn)
+                                    if not os.path.exists(final_folder):
+                                        os.makedirs(final_folder)
 
-                            print("*******\nStart of the simulation\n*******")
-                            start_simulation = time.time()
-                            results = Parallel(n_jobs=n_jobs, prefer="processes")(
-                                delayed(process)(t) for t in range(trials))
-                            print(f"*******\nEnd of the simulation in {time.time() - start_simulation}\n*******")
+                                    path = os.path.join(final_folder, fn)
 
-                            save_results(results, strategy, path, LOAD_DICT, OVERWRITE_DICT, TAKE_TIME)
+                                    print("*******\nStart of the simulation\n*******")
+                                    start_simulation = time.time()
+                                    results = Parallel(n_jobs=n_jobs, prefer="processes")(
+                                        delayed(process)(t) for t in range(trials))
+                                    print(f"*******\nEnd of the simulation in {time.time() - start_simulation}\n*******")
 
-                        else:  # just evaluate
+                                    save_results(results, strategy, path, LOAD_DICT, OVERWRITE_DICT, TAKE_TIME)
 
-                            print("*******\nStart of the evaluation\n*******")
-                            evaluations = Parallel(n_jobs=n_jobs, prefer="processes")(
-                                delayed(process)(t) for t in range(trials))
-                            print(f"*******\nEnd of the evaluation\n*******")
+                                else:  # just evaluate
 
-                            save_evaluations(evaluations, strategy, competitors, k, users_budget, deterministic,
-                                             dataset_name)
+                                    print("*******\nStart of the evaluation\n*******")
+                                    evaluations = Parallel(n_jobs=n_jobs, prefer="processes")(
+                                        delayed(process)(t) for t in range(trials))
+                                    print(f"*******\nEnd of the evaluation\n*******")
 
-                        print("-----------------------")
+                                    save_evaluations(evaluations, strategy, competitors, k, users_budget, dataset_name)
+
+                                print("-----------------------")
 
 
 if __name__ == '__main__':
 
-    datasets = ["coat", "netflix", "movielens-1m", "yahoo-r2", "KuaiRec-2.0_small"]
-    datasets = ["KuaiRec-2.0_small"]
+    datasets = ["netflix", "movielens-1m", "yahoo-r2", "KuaiRec-2.0_small", "coat"]
 
     for dataset in datasets:
         main(dataset)

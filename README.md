@@ -1,24 +1,9 @@
 # EXPLORE
 
-This is the official repository of our paper "**Relevance Meets Diversity: A User-Centric Framework for Knowledge Exploration Through Recommendations**", accepted at KDD2024.
+This is the official repository of our paper "**Tackling Relevance and Diversity in Recommendations with a Novel User-Centric Framework**", submitted to the TKDD Journal.
+The paper extends from the previous work "**Relevance Meets Diversity: A User-Centric Framework for Knowledge Exploration Through Recommendations**", accepted at KDD2024.
 
-## CITATION
-
-If you want to use the code, please cite us:
-
-```
-@inproceedings{RelevanceMeetsDiversity,
-author = {Coppolillo, Erica and Manco, Giuseppe and Gionis, Aristides},
-title = {Relevance Meets Diversity: A User-Centric Framework for Knowledge Exploration Through Recommendations},
-year = {2024},
-publisher = {Association for Computing Machinery},
-doi = {10.1145/3637528.3671949},
-booktitle = {Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
-pages = {490–501},
-series = {KDD '24}
-}
-```
-
+If you want to use the previous code, please switch to the "KDD2024" branch.
 
 ## USAGE
 
@@ -42,7 +27,7 @@ In order to reproduce the experiments, just follow the steps:
 6. ### Launch the exploration process
    Run `strategy/main.py` to start the exploration process.
    You can specify the dataset(s) to adopt, the number of expected steps, the length of the recommendation list, and the strategy(-ies) to exploit.
-   By default, the number of steps is \[5, 10\], the length of the list is equal to 10, and the strategies are the ones reported in the paper (competitors included).
+   Additionally, you can decide if allowing the user to refresh the recommendation list, which refreshing strategy adopting, and whether introducing a random factor when the list is constructed.
 
-  
-
+   By default, the number of steps is 5, the length of the list is equal to 10, refreshing the list is not allowed, and no random factor is considered.
+   The strategies are the ones reported in the paper (competitors included).
