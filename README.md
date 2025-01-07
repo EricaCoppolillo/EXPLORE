@@ -4,7 +4,21 @@ This is the official repository of our paper "**Relevance Meets Diversity: A Use
 
 ## CITATION
 
-If you want to use the code, please cite us.
+If you want to use the code, please cite us:
+
+```
+@inproceedings{RelevanceMeetsDiversity,
+author = {Coppolillo, Erica and Manco, Giuseppe and Gionis, Aristides},
+title = {Relevance Meets Diversity: A User-Centric Framework for Knowledge Exploration Through Recommendations},
+year = {2024},
+publisher = {Association for Computing Machinery},
+doi = {10.1145/3637528.3671949},
+booktitle = {Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
+pages = {490–501},
+series = {KDD '24}
+}
+```
+
 
 ## USAGE
 
