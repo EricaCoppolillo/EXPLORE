@@ -1,9 +1,8 @@
 # EXPLORE
 
-This is the official repository of our paper "**Tackling Relevance and Diversity in Recommendations with a Novel User-Centric Framework**", submitted to the TKDD Journal.
-The paper extends from the previous work "**Relevance Meets Diversity: A User-Centric Framework for Knowledge Exploration Through Recommendations**", accepted at KDD2024.
+This is the official repository of our paper "**Relevance Meets Diversity: A User-Centric Framework for Knowledge Exploration Through Recommendations**", currently submitted to the TKDD journal. 
 
-If you want to use the previous code, please switch to the "KDD2024" branch.
+Please, notice it extends from a previous work accepted at KDD2024. If you want to use the conference code, please switch to the "KDD2024" branch.
 
 ## USAGE
 
